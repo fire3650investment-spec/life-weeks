@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Life Weeks — 單色自動漸層版（簡化版，原生日曆輸入）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1115;--fg:#e9edf6;--muted:#a7b1c5;--onLight:#8ba2ff;--onDark:#3e52ad;--offLight:#2f3852;--offDark:#141a2b;--border:rgba(255,255,255,.12)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial}
+.header{display:flex;justify-content:space-between;padding:16px 20px;position:sticky;top:0;z-index:3;background:linear-gradient(180deg,rgba(15,17,21,.95),rgba(15,17,21,.75) 70%,rgba(15,17,21,0));border-bottom:1px solid rgba(255,255,255,.06)}
+.h1{font-size:22px;font-weight:800}.sub{font-size:12px;color:var(--muted)}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{border:1px solid var(--border);background:#2a3358;color:var(--fg);border-radius:8px;padding:6px 10px;cursor:pointer}
+.container{display:grid;grid-template-columns:1fr 360px;gap:18px;padding:18px}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:16px}
+.grid{--size:14;--gap:8;display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(var(--size)*1px),1fr));gap:var(--gap)*1px}
+.grid .w{width:calc(var(--size)*1px);height:calc(var(--size)*1px);border-radius:50%;background:radial-gradient(circle at 30% 30%,var(--offLight),var(--offDark))}
+.grid .w.on{background:radial-gradient(circle at 30% 30%,var(--onLight),var(--onDark))}
+.tooltip{display:none;position:absolute;background:#000;color:#fff;font-size:10px;padding:2px 4px;border-radius:4px}
+.grid .w:hover .tooltip{display:block}
+.row{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.row label{width:100px;font-size:13px;color:#ccc}
+.row input,.row select{flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:#0f1320;color:#fff}
+</style>
+</head>
+<body>
+<div class="header"><div><div class="h1">人生週點陣 Life Weeks（簡化版）</div><div class="sub">每週一個點</div></div>
+<div class="controls"><button class="btn" id="shareBtn">產生分享連結</button><button class="btn" id="invertBtn">切換模式</button></div></div>
+<div class="container">
+<div class="card">
+<div id="stats"></div><div id="grid" class="grid"></div>
+</div>
+<div class="card">
+<div class="row"><label for="birth">生日</label><input id="birth" type="date"></div>
+<div class="row"><label for="sex">性別</label><select id="sex"><option value="male">男(77)</option><option value="female">女(84)</option><option value="custom">自訂</option></select></div>
+<div class="row"><label for="life">壽命</label><input id="life" type="number" value="77"></div>
+<div class="row"><label for="mode">模式</label><select id="mode"><option value="elapsed">已過</option><option value="remaining" selected>剩餘</option></select></div>
+<div class="row"><label for="onBase">已過色</label><input id="onBase" type="color" value="#8ba2ff"></div>
+<div class="row"><label for="offBase">剩餘色</label><input id="offBase" type="color" value="#2f3852"></div>
+<button class="btn" id="applyBtn">套用</button>
+</div></div>
+<script>
+function clamp(n,min,max){return Math.min(Math.max(n,min),max)}
+function addYears(d,y){let n=new Date(d);n.setFullYear(n.getFullYear()+y);return n}
+function weeksBetween(a,b){return Math.floor((b-a)/(7*24*60*60*1000))}
+function hexToRgb(h){const n=parseInt(h.slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
+function rgbToHex(r,g,b){return"#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function darken(h,a=.35){let {r,g,b}=hexToRgb(h);return rgbToHex(Math.round(r*(1-a)),Math.round(g*(1-a)),Math.round(b*(1-a)))}
+const els={birth:document.getElementById("birth"),sex:document.getElementById("sex"),life:document.getElementById("life"),mode:document.getElementById("mode"),onBase:document.getElementById("onBase"),offBase:document.getElementById("offBase"),grid:document.getElementById("grid"),stats:document.getElementById("stats")}
+function apply(){const birth=els.birth.value?new Date(els.birth.value):null;let life=parseInt(els.life.value)||77;if(els.sex.value=="male")life=77;if(els.sex.value=="female")life=84;const mode=els.mode.value;document.documentElement.style.setProperty("--onLight",els.onBase.value);document.documentElement.style.setProperty("--onDark",darken(els.onBase.value));document.documentElement.style.setProperty("--offLight",els.offBase.value);document.documentElement.style.setProperty("--offDark",darken(els.offBase.value));if(!birth){els.stats.innerText="請輸入生日";els.grid.innerHTML="";return}const end=addYears(birth,life);const total=weeksBetween(birth,end);const elapsed=weeksBetween(birth,new Date());els.stats.innerText=`總週數:${total} 已過:${elapsed} 剩餘:${Math.max(0,total-elapsed)}`;els.grid.innerHTML="";for(let i=0;i<total;i++){let d=document.createElement("div");d.className="w";const weekStart=new Date(birth.getTime()+i*7*24*60*60*1000);const weekEnd=new Date(weekStart.getTime()+6*24*60*60*1000);const elapsedWeek=(new Date()>=weekEnd);const on=(mode=="elapsed")?elapsedWeek:!elapsedWeek;if(on)d.classList.add("on");els.grid.appendChild(d)}}
+document.getElementById("applyBtn").onclick=apply;document.getElementById("invertBtn").onclick=()=>{els.mode.value=(els.mode.value=="elapsed")?"remaining":"elapsed";apply()};document.getElementById("shareBtn").onclick=()=>{navigator.clipboard.writeText(location.href)};
+</script>
+</body></html>
