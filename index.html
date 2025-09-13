@@ -74,6 +74,7 @@ body{
 .grid .w:hover .tooltip{display:block}
 .statline{display:flex; gap:16px; flex-wrap:wrap; font-size:14px; margin-bottom:10px}
 .statline b{font-size:16px}
+.mantra{margin:10px 0 14px 0; font-size:13px; color:#cbd6ff; background:rgba(106,125,255,.08); border:1px solid rgba(106,125,255,.25); padding:10px 12px; border-radius:10px}
 /* Right panel */
 .panel{position:sticky; top:72px}
 .panel h3{margin:0 0 10px 0; font-size:14px; letter-spacing:.16em; color:#c7d0e2; text-transform:uppercase}
@@ -94,7 +95,7 @@ input[type="range"]{width:100%}
   <div class="header">
     <div>
       <div class="h1">人生週點陣 Life Weeks</div>
-      <div class="sub">每一週是一個點：已走過 / 尚未到來</div>
+      <div class="sub" id="fixedSub">珍惜每分每秒，珍惜每一次人生相遇</div>
     </div>
     <div class="controls">
       <button class="btn" id="shareBtn">產生分享連結</button>
@@ -106,6 +107,7 @@ input[type="range"]{width:100%}
     <!-- Left: grid -->
     <div class="card">
       <div class="statline" id="stats"></div>
+      <div class="mantra" id="mantra" style="display:none"></div>
       <div class="legend">
         <span class="badge"><span class="dot" style="background:var(--dot-on)"></span> <span id="legendOn">已過</span></span>
         <span class="badge"><span class="dot" style="background:var(--dot-off)"></span> <span id="legendOff">剩餘</span></span>
@@ -117,10 +119,6 @@ input[type="range"]{width:100%}
     <!-- Right: settings -->
     <div class="card panel">
       <h3>設定</h3>
-      <div class="row">
-        <label for="name">顯示抬頭</label>
-        <input id="name" placeholder="例如：我的人生週曆"/>
-      </div>
       <div class="row">
         <label for="birth">生日</label>
         <input id="birth" type="date"/>
@@ -177,6 +175,21 @@ function fmtDate(d){return d.toISOString().slice(0,10)}
 function weeksBetween(a,b){ return Math.max(0, Math.floor((b - a) / (7*24*60*60*1000))); }
 function daysBetween(a,b){ return Math.floor((b-a)/(24*60*60*1000)); }
 
+/* ---------- Quotes by remaining % (bucket 100..0) ---------- */
+const QUOTES = {
+  100: "剛啟程，定下你最想守護的人與事。",
+   90: "長路在前，及早投資在關係與健康。",
+   80: "別讓拖延偷走月份，去做真正重要的。",
+   70: "選擇比努力更關鍵；把時間給對的人。",
+   60: "過半之前，學會說不，為重要的人留白。",
+   50: "折返點，把時間用在你最愛的人身上。",
+   40: "開始看見終點，別把相聚拖到明天。",
+   30: "把每個月都排進一次重要相見。",
+   20: "說出感謝，修好關係，留下作品與故事。",
+   10: "道謝道愛，把每一天當成唯一。",
+    0: "時間歸零，唯有愛與作品留下。"
+};
+
 /* ---------- State ---------- */
 const qs = new URLSearchParams(location.search);
 const els = {
@@ -185,11 +198,11 @@ const els = {
   rangeText: document.getElementById('rangeText'),
   legendOn: document.getElementById('legendOn'),
   legendOff: document.getElementById('legendOff'),
+  mantra: document.getElementById('mantra'),
   apply: document.getElementById('applyBtn'),
   share: document.getElementById('shareBtn'),
   invert: document.getElementById('invertBtn'),
   jumpToday: document.getElementById('todayBtn'),
-  name: document.getElementById('name'),
   birth: document.getElementById('birth'),
   sex: document.getElementById('sex'),
   life: document.getElementById('life'),
@@ -197,17 +210,14 @@ const els = {
   size: document.getElementById('size'),
   gap: document.getElementById('gap'),
   colorOn: document.getElementById('colorOn'),
-  colorOff: document.getElementById('colorOff'),
-  headerTitle: document.querySelector('.h1'),
-  headerSub: document.querySelector('.sub')
+  colorOff: document.getElementById('colorOff')
 };
 
 let state = {
-  name: '我的人生週曆',
   birth: null, // Date
   sex: 'male',
   life: 77,
-  mode: 'remaining', // or 'remaining'
+  mode: 'remaining', // or 'elapsed'
   size: 12,
   gap: 8,
   colorOn: '#8ba2ff',
@@ -220,7 +230,6 @@ let state = {
 
 /* ---------- Setup & URL params ---------- */
 function loadFromQuery(){
-  if (qs.get('name')) els.name.value = qs.get('name');
   if (qs.get('birth')) els.birth.value = qs.get('birth');
   if (qs.get('sex')) els.sex.value = qs.get('sex');
   if (qs.get('life')) els.life.value = qs.get('life');
@@ -231,7 +240,6 @@ function loadFromQuery(){
   if (qs.get('off')) els.colorOff.value = qs.get('off');
 }
 function applyFromUI(){
-  state.name = els.name.value || '我的人生週曆';
   state.birth = els.birth.value ? new Date(els.birth.value + 'T00:00:00') : null;
   state.sex = els.sex.value;
   let lifeYears = parseInt(els.life.value || '0', 10);
@@ -248,9 +256,6 @@ function applyFromUI(){
   document.querySelector('.grid').style.setProperty('--size', state.size);
   document.querySelector('.grid').style.setProperty('--gap', state.gap);
 
-  els.headerTitle.textContent = '人生週點陣 Life Weeks';
-  els.headerSub.textContent = state.name;
-
   if (state.birth){
     state.startDate = new Date(state.birth);
     state.endDate = addYears(state.startDate, state.life);
@@ -263,7 +268,6 @@ function applyFromUI(){
 function buildURL(){
   const p = new URL(location.href);
   const sp = new URLSearchParams();
-  if (els.name.value) sp.set('name', els.name.value);
   if (els.birth.value) sp.set('birth', els.birth.value);
   if (els.sex.value) sp.set('sex', els.sex.value);
   if (els.life.value) sp.set('life', els.life.value);
@@ -278,21 +282,31 @@ function buildURL(){
 
 /* ---------- Rendering ---------- */
 function renderStats(){
-  if (!state.startDate){ els.stats.innerHTML = '<span class="small">請在右方輸入生日與性別/壽命</span>'; els.rangeText.textContent=''; return; }
+  if (!state.startDate){ els.stats.innerHTML = '<span class="small">請在右方輸入生日與性別/壽命</span>'; els.rangeText.textContent=''; els.mantra.style.display='none'; return; }
   const daysLived = daysBetween(state.startDate, new Date());
   const daysTotal = daysBetween(state.startDate, state.endDate);
   const daysRemain = Math.max(0, daysTotal - daysLived);
-  const pct = Math.round((state.elapsedWeeks / state.totalWeeks) * 100);
+  const pctElapsed = Math.round((state.elapsedWeeks / state.totalWeeks) * 100);
+  const pctRemain = Math.max(0, 100 - pctElapsed);
+  const bucket = Math.round(pctRemain / 10) * 10;
+  const quote = QUOTES.hasOwnProperty(bucket) ? QUOTES[bucket] : '';
 
   els.stats.innerHTML = `
     <div>總週數：<b>${state.totalWeeks.toLocaleString()}</b></div>
     <div>已過週數：<b>${Math.min(state.elapsedWeeks, state.totalWeeks).toLocaleString()}</b></div>
     <div>剩餘週數：<b>${Math.max(0, state.totalWeeks - state.elapsedWeeks).toLocaleString()}</b></div>
-    <div>進度：<b>${pct}%</b></div>
+    <div>進度：<b>${pctElapsed}%</b></div>
   `;
   els.legendOn.textContent = state.mode==='elapsed'?'已過':'剩餘';
   els.legendOff.textContent = state.mode==='elapsed'?'剩餘':'已過';
   els.rangeText.textContent = `範圍：${fmtDate(state.startDate)} → ${fmtDate(state.endDate)}`;
+
+  if (quote){
+    els.mantra.textContent = `剩下 ${pctRemain}% ：${quote}`;
+    els.mantra.style.display = 'block';
+  }else{
+    els.mantra.style.display = 'none';
+  }
 }
 function renderGrid(){
   const g = els.grid;
