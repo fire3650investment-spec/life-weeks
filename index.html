@@ -100,6 +100,7 @@ input[type="range"]{width:100%}
     <div class="controls">
       <button class="btn" id="shareBtn">產生分享連結</button>
       <button class="btn ghost" id="invertBtn">切換：顯示已過 / 剩餘</button>
+      <button class="btn ghost" id="resetBtn" title="清除本機設定">重置設定</button>
     </div>
   </div>
 
@@ -163,7 +164,7 @@ input[type="range"]{width:100%}
         <button class="btn" id="applyBtn">套用</button>
         <button class="btn ghost" id="todayBtn">跳到今天位置</button>
       </div>
-      <div class="hint">提示：選「男/女」會自動調整壽命（77/84），也可自訂覆寫；每個點 = 一週。</div>
+      <div class="hint">提示：選「男/女」會自動調整壽命（77/84），也可自訂覆寫；每個點 = 一週。嵌入 Notion 時，本機瀏覽器會記住你的設定。</div>
     </div>
   </div>
 
@@ -182,15 +183,16 @@ const QUOTES = {
    80: "別讓拖延偷走月份，去做真正重要的。",
    70: "選擇比努力更關鍵；把時間給對的人。",
    60: "過半之前，學會說不，為重要的人留白。",
-   50: "折返點，把時間用在你最愛的人身上。",
+   50: "折返點：把時間用在你最愛的人身上。",
    40: "開始看見終點，別把相聚拖到明天。",
    30: "把每個月都排進一次重要相見。",
    20: "說出感謝，修好關係，留下作品與故事。",
-   10: "道謝道愛，把每一天當成唯一。",
+   10: "最後一成，把每一天當成唯一。",
     0: "時間歸零，唯有愛與作品留下。"
 };
 
-/* ---------- State ---------- */
+/* ---------- State & Elements ---------- */
+const STORAGE_KEY = 'lifeWeeksSettings.v1'; // 可改版控 key
 const qs = new URLSearchParams(location.search);
 const els = {
   grid: document.getElementById('grid'),
@@ -203,6 +205,7 @@ const els = {
   share: document.getElementById('shareBtn'),
   invert: document.getElementById('invertBtn'),
   jumpToday: document.getElementById('todayBtn'),
+  reset: document.getElementById('resetBtn'),
   birth: document.getElementById('birth'),
   sex: document.getElementById('sex'),
   life: document.getElementById('life'),
@@ -228,6 +231,49 @@ let state = {
   elapsedWeeks: 0
 };
 
+/* ---------- LocalStorage ---------- */
+function saveToStorage() {
+  const data = {
+    birth: els.birth.value,
+    sex: els.sex.value,
+    life: els.life.value,
+    mode: els.mode.value,
+    size: els.size.value,
+    gap: els.gap.value,
+    colorOn: els.colorOn.value,
+    colorOff: els.colorOff.value
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Unable to save settings:', e);
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.birth) els.birth.value = data.birth;
+    if (data.sex) els.sex.value = data.sex;
+    if (data.life) els.life.value = data.life;
+    if (data.mode) els.mode.value = data.mode;
+    if (data.size) els.size.value = data.size;
+    if (data.gap) els.gap.value = data.gap;
+    if (data.colorOn) els.colorOn.value = data.colorOn;
+    if (data.colorOff) els.colorOff.value = data.colorOff;
+  } catch (e) {
+    console.warn('Unable to load settings:', e);
+  }
+}
+
+function clearStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch(e) {}
+}
+
 /* ---------- Setup & URL params ---------- */
 function loadFromQuery(){
   if (qs.get('birth')) els.birth.value = qs.get('birth');
@@ -239,13 +285,17 @@ function loadFromQuery(){
   if (qs.get('on')) els.colorOn.value = qs.get('on');
   if (qs.get('off')) els.colorOff.value = qs.get('off');
 }
+
 function applyFromUI(){
   state.birth = els.birth.value ? new Date(els.birth.value + 'T00:00:00') : null;
   state.sex = els.sex.value;
+
+  // 性別為 male/female 時，以預設壽命覆寫；custom 則使用輸入
   let lifeYears = parseInt(els.life.value || '0', 10);
   if (state.sex === 'male') lifeYears = 77;
   if (state.sex === 'female') lifeYears = 84;
   state.life = clamp(lifeYears||0, 1, 130);
+
   state.mode = els.mode.value;
   state.size = parseInt(els.size.value,10);
   state.gap = parseInt(els.gap.value,10);
@@ -265,6 +315,7 @@ function applyFromUI(){
     state.startDate = null; state.endDate = null; state.totalWeeks=0; state.elapsedWeeks=0;
   }
 }
+
 function buildURL(){
   const p = new URL(location.href);
   const sp = new URLSearchParams();
@@ -285,7 +336,6 @@ function renderStats(){
   if (!state.startDate){ els.stats.innerHTML = '<span class="small">請在右方輸入生日與性別/壽命</span>'; els.rangeText.textContent=''; els.mantra.style.display='none'; return; }
   const daysLived = daysBetween(state.startDate, new Date());
   const daysTotal = daysBetween(state.startDate, state.endDate);
-  const daysRemain = Math.max(0, daysTotal - daysLived);
   const pctElapsed = Math.round((state.elapsedWeeks / state.totalWeeks) * 100);
   const pctRemain = Math.max(0, 100 - pctElapsed);
   const bucket = Math.round(pctRemain / 10) * 10;
@@ -308,6 +358,7 @@ function renderStats(){
     els.mantra.style.display = 'none';
   }
 }
+
 function renderGrid(){
   const g = els.grid;
   g.innerHTML='';
@@ -333,6 +384,7 @@ function renderGrid(){
   }
   g.appendChild(frag);
 }
+
 function jumpToToday(){
   if (!state.startDate) return;
   const todayIndex = Math.min(state.elapsedWeeks, state.totalWeeks-1);
@@ -340,29 +392,64 @@ function jumpToToday(){
   if (child) child.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
 }
 
-/* ---------- Events ---------- */
-els.apply.addEventListener('click', ()=>{ applyFromUI(); renderStats(); renderGrid(); });
+/* ---------- Bind & Events ---------- */
+function bindAutoSave(){
+  const inputs = [els.birth, els.sex, els.life, els.mode, els.size, els.gap, els.colorOn, els.colorOff];
+  inputs.forEach(el=>{
+    el.addEventListener('change', ()=>{ saveToStorage(); });
+    el.addEventListener('input', ()=>{ saveToStorage(); });
+  });
+}
+
+els.apply.addEventListener('click', ()=>{
+  applyFromUI(); renderStats(); renderGrid(); saveToStorage();
+});
+
 els.share.addEventListener('click', ()=>{
   const url = buildURL();
   navigator.clipboard.writeText(url).then(()=>{
     els.share.textContent='已複製連結'; setTimeout(()=>els.share.textContent='產生分享連結',1500);
   });
 });
+
 els.invert.addEventListener('click', ()=>{
   els.mode.value = (els.mode.value==='elapsed') ? 'remaining' : 'elapsed';
-  applyFromUI(); renderStats(); renderGrid();
+  applyFromUI(); renderStats(); renderGrid(); saveToStorage();
 });
+
 els.jumpToday.addEventListener('click', jumpToToday);
+
 els.sex.addEventListener('change', ()=>{
   if (els.sex.value==='male') els.life.value=77;
   else if (els.sex.value==='female') els.life.value=84;
+  saveToStorage();
 });
 
+els.reset.addEventListener('click', ()=>{
+  clearStorage();
+  // 回到預設狀態
+  els.birth.value = '';
+  els.sex.value = 'male';
+  els.life.value = '77';
+  els.mode.value = 'remaining';
+  els.size.value = '12';
+  els.gap.value = '8';
+  els.colorOn.value = '#8ba2ff';
+  els.colorOff.value = '#2a3145';
+  applyFromUI(); renderStats(); renderGrid();
+  els.reset.textContent = '已重置';
+  setTimeout(()=> els.reset.textContent='重置設定', 1200);
+});
+
+window.addEventListener('beforeunload', saveToStorage);
+
 /* ---------- Init ---------- */
-loadFromQuery();
+loadFromStorage(); // 1) 先讀本機設定
+loadFromQuery();   // 2) 再讀網址參數（若有）→ 覆蓋
 applyFromUI();
 renderStats();
 renderGrid();
+bindAutoSave();
 </script>
 </body>
 </html>
