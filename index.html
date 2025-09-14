@@ -16,7 +16,6 @@
   --dot-on:#8ba2ff;
   --dot-off:#2a3145;
   --accent:#6a7dff;
-  --sticky-top:72px; /* header + 間距的安全值 */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -46,12 +45,22 @@ body{
   background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.14));
   border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px; backdrop-filter: blur(6px);
   box-shadow:0 20px 60px rgba(0,0,0,.35);
+  scroll-margin-top: 96px; /* 備援 */
 }
+
+/* 統計 */
+.statline{display:flex; gap:16px; flex-wrap:wrap; font-size:14px; margin-bottom:8px}
+.statline b{font-size:16px}
+.progress-line{font-size:15px; font-weight:700; color:#9dc6ff; margin-bottom:8px}
+.progress-line b{ font-size:18px }
+.mantra{margin:10px 0 14px 0; font-size:13px; color:#cbd6ff; background:rgba(106,125,255,.08); border:1px solid rgba(106,125,255,.25); padding:10px 12px; border-radius:10px}
+
 .legend{display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--muted); margin-bottom:10px}
 .badge{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.12)}
 .dot{width:12px; height:12px; border-radius:50%}
+
 .grid{
-  --size:12; /* px */
+  --size:12;
   --gap:8;
   display:grid;
   grid-template-columns: repeat(auto-fill, minmax(calc(var(--size)*1px), 1fr));
@@ -63,25 +72,16 @@ body{
   background:var(--dot-off);
   box-shadow: inset 0 1px 1px rgba(255,255,255,.06), 0 1px 2px rgba(0,0,0,.3);
   position:relative;
-  transition: transform .12s ease, background .2s ease;
 }
 .grid .w.on{ background:var(--dot-on); }
-.grid .w:hover{ transform:scale(1.25); z-index:2 }
 .tooltip{
   position:absolute; left:50%; top:-10px; transform:translate(-50%,-100%);
   background:#0f1320; color:#dfe7ff; padding:6px 8px; border-radius:8px; font-size:11px;
   border:1px solid rgba(255,255,255,.12); white-space:nowrap; display:none;
 }
 .grid .w:hover .tooltip{display:block}
-.statline{display:flex; gap:16px; flex-wrap:wrap; font-size:14px; margin-bottom:10px}
-.statline b{font-size:16px}
-.mantra{margin:10px 0 14px 0; font-size:13px; color:#cbd6ff; background:rgba(106,125,255,.08); border:1px solid rgba(106,125,255,.25); padding:10px 12px; border-radius:10px}
 
-/* 讓卷到 #stats 時不被 sticky header 擋住 */
-#stats{ scroll-margin-top: calc(var(--sticky-top) + 8px); }
-
-/* Right panel */
-.panel{position:sticky; top:var(--sticky-top)}
+.panel{position:sticky; top:96px}
 .panel h3{margin:0 0 10px 0; font-size:14px; letter-spacing:.16em; color:#c7d0e2; text-transform:uppercase}
 .row{display:flex; gap:10px; margin-bottom:10px; align-items:center}
 .row label{width:92px; font-size:13px; color:#cdd5e7}
@@ -91,28 +91,24 @@ body{
 }
 .hint{font-size:12px; color:var(--muted); margin-top:6px}
 .sep{height:1px; background:rgba(255,255,255,.08); margin:12px 0}
-.small{font-size:12px; color:var(--muted)}
-.toggle{display:flex; gap:8px; align-items:center}
-input[type="range"]{width:100%}
 </style>
 </head>
 <body>
-  <div class="header">
+  <div class="header" id="appHeader">
     <div>
       <div class="h1">人生週點陣 Life Weeks</div>
-      <div class="sub" id="fixedSub">珍惜每分每秒，珍惜每一次人生相遇</div>
+      <div class="sub">珍惜每分每秒，珍惜每一次人生相遇</div>
     </div>
     <div class="controls">
-      <button class="btn" id="shareBtn">產生分享連結</button>
-      <button class="btn ghost" id="invertBtn">切換：顯示已過 / 剩餘</button>
-      <button class="btn ghost" id="resetBtn" title="清除本機設定">重置設定</button>
+      <button class="btn" id="shareBtn" type="button">產生分享連結</button>
+      <button class="btn ghost" id="invertBtn" type="button">切換：顯示已過 / 剩餘</button>
+      <button class="btn ghost" id="resetBtn" type="button" title="清除本機設定">重置設定</button>
     </div>
   </div>
 
   <div class="container">
-    <!-- Left: grid & stats -->
     <div class="card">
-      <div class="statline" id="stats"></div>
+      <div id="stats"></div>
       <div class="mantra" id="mantra" style="display:none"></div>
       <div class="legend">
         <span class="badge"><span class="dot" style="background:var(--dot-on)"></span> <span id="legendOn">已過</span></span>
@@ -122,326 +118,196 @@ input[type="range"]{width:100%}
       <div id="grid" class="grid" aria-live="polite"></div>
     </div>
 
-    <!-- Right: settings -->
     <div class="card panel">
       <h3>設定</h3>
-      <div class="row">
-        <label for="birth">生日</label>
-        <input id="birth" type="date"/>
-      </div>
-      <div class="row">
-        <label for="sex">性別</label>
+      <div class="row"><label for="birth">生日</label><input id="birth" type="date"/></div>
+      <div class="row"><label for="sex">性別</label>
         <select id="sex">
           <option value="male">男（77）</option>
           <option value="female">女（84）</option>
           <option value="custom">自訂</option>
         </select>
       </div>
-      <div class="row">
-        <label for="life">壽命（年）</label>
-        <input id="life" type="number" min="1" max="130" step="1" value="77"/>
-      </div>
-      <div class="row">
-        <label for="mode">顯示模式</label>
+      <div class="row"><label for="life">壽命（年）</label><input id="life" type="number" min="1" max="130" step="1" value="77"/></div>
+      <div class="row"><label for="mode">顯示模式</label>
         <select id="mode">
           <option value="elapsed">點亮已過的週</option>
           <option value="remaining" selected>點亮剩餘的週</option>
         </select>
       </div>
-      <div class="row">
-        <label for="size">點大小</label>
-        <input id="size" type="range" min="8" max="20" step="1" value="12"/>
-      </div>
-      <div class="row">
-        <label for="gap">點間距</label>
-        <input id="gap" type="range" min="4" max="16" step="1" value="8"/>
-      </div>
-      <div class="row">
-        <label for="colorOn">已過顏色</label>
-        <input id="colorOn" type="color" value="#8ba2ff"/>
-      </div>
-      <div class="row">
-        <label for="colorOff">剩餘顏色</label>
-        <input id="colorOff" type="color" value="#2a3145"/>
-      </div>
       <div class="sep"></div>
       <div class="row">
-        <button class="btn" id="applyBtn">套用</button>
-        <button class="btn ghost" id="todayBtn">跳到今天位置</button>
+        <button class="btn" id="applyBtn" type="button">套用</button>
+        <button class="btn ghost" id="todayBtn" type="button">跳到今天位置</button>
       </div>
-      <div class="hint">提示：選「男/女」會自動調整壽命（77/84），也可自訂覆寫；每個點 = 一週。嵌入 Notion 時，本機瀏覽器會記住你的設定。</div>
+      <div class="hint">提示：選「男/女」會自動調整壽命（77/84），也可自訂覆寫；每個點 = 一週。</div>
     </div>
   </div>
 
 <script>
-/* ---------- Utilities ---------- */
-function clamp(n,min,max){return Math.min(Math.max(n,min),max)}
-function addYears(date, years){ const d=new Date(date); d.setFullYear(d.getFullYear()+years); return d; }
-function fmtDate(d){return d.toISOString().slice(0,10)}
-function weeksBetween(a,b){ return Math.max(0, Math.floor((b - a) / (7*24*60*60*1000))); }
-function daysBetween(a,b){ return Math.floor((b-a)/(24*60*60*1000)); }
-
-/* ---------- Quotes by remaining % (bucket 100..0) ---------- */
-const QUOTES = {
-  100: "剛啟程，定下你最想守護的人與事。",
-   90: "長路在前，及早投資在關係與健康。",
-   80: "別讓拖延偷走月份，去做真正重要的。",
-   70: "選擇比努力更關鍵；把時間給對的人。",
-   60: "過半之前，學會說不，為重要的人留白。",
-   50: "折返點：把時間用在你最愛的人身上。",
-   40: "開始看見終點，別把相聚拖到明天。",
-   30: "把每個月都排進一次重要相見。",
-   20: "說出感謝，修好關係，留下作品與故事。",
-   10: "最後一成，把每一天當成唯一。",
-    0: "時間歸零，唯有愛與作品留下。"
-};
-
-/* ---------- State & Elements ---------- */
-const STORAGE_KEY = 'lifeWeeksSettings.v1';
-const qs = new URLSearchParams(location.search);
+/* ---------- DOM 快取 ---------- */
 const els = {
-  grid: document.getElementById('grid'),
+  header: document.getElementById('appHeader'),
   stats: document.getElementById('stats'),
+  grid: document.getElementById('grid'),
+  mantra: document.getElementById('mantra'),
   rangeText: document.getElementById('rangeText'),
   legendOn: document.getElementById('legendOn'),
   legendOff: document.getElementById('legendOff'),
-  mantra: document.getElementById('mantra'),
   apply: document.getElementById('applyBtn'),
+  today: document.getElementById('todayBtn'),
   share: document.getElementById('shareBtn'),
   invert: document.getElementById('invertBtn'),
-  jumpToday: document.getElementById('todayBtn'),
   reset: document.getElementById('resetBtn'),
   birth: document.getElementById('birth'),
   sex: document.getElementById('sex'),
   life: document.getElementById('life'),
-  mode: document.getElementById('mode'),
-  size: document.getElementById('size'),
-  gap: document.getElementById('gap'),
-  colorOn: document.getElementById('colorOn'),
-  colorOff: document.getElementById('colorOff')
+  mode: document.getElementById('mode')
 };
 
-let state = {
-  birth: null, sex: 'male', life: 77,
-  mode: 'remaining', size: 12, gap: 8,
-  colorOn: '#8ba2ff', colorOff: '#2a3145',
-  startDate: null, endDate: null, totalWeeks: 0, elapsedWeeks: 0
-};
+/* ---------- 常數 / 儲存 ---------- */
+const STORAGE_KEY='lifeWeeksSettings.v1';
 
-/* ---------- LocalStorage ---------- */
-function saveToStorage() {
-  const data = {
-    birth: els.birth.value, sex: els.sex.value, life: els.life.value,
-    mode: els.mode.value, size: els.size.value, gap: els.gap.value,
-    colorOn: els.colorOn.value, colorOff: els.colorOff.value
-  };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
-}
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return;
-    const d = JSON.parse(raw);
-    if (d.birth) els.birth.value=d.birth;
-    if (d.sex) els.sex.value=d.sex;
-    if (d.life) els.life.value=d.life;
-    if (d.mode) els.mode.value=d.mode;
-    if (d.size) els.size.value=d.size;
-    if (d.gap) els.gap.value=d.gap;
-    if (d.colorOn) els.colorOn.value=d.colorOn;
-    if (d.colorOff) els.colorOff.value=d.colorOff;
-  } catch(e){}
-}
-function clearStorage(){ try{ localStorage.removeItem(STORAGE_KEY); }catch(e){} }
+/* ---------- 狀態 ---------- */
+let state={birth:null,sex:'male',life:77,mode:'remaining',startDate:null,endDate:null,totalWeeks:0,elapsedWeeks:0};
 
-/* ---------- Setup & URL params ---------- */
-function loadFromQuery(){
-  if (qs.get('birth')) els.birth.value = qs.get('birth');
-  if (qs.get('sex')) els.sex.value = qs.get('sex');
-  if (qs.get('life')) els.life.value = qs.get('life');
-  if (qs.get('mode')) els.mode.value = qs.get('mode');
-  if (qs.get('size')) els.size.value = qs.get('size');
-  if (qs.get('gap')) els.gap.value = qs.get('gap');
-  if (qs.get('on')) els.colorOn.value = qs.get('on');
-  if (qs.get('off')) els.colorOff.value = qs.get('off');
+/* ---------- 工具 ---------- */
+function addYears(d,y){const n=new Date(d);n.setFullYear(n.getFullYear()+y);return n;}
+function weeksBetween(a,b){return Math.max(0,Math.floor((b-a)/(7*24*60*60*1000)));}
+function fmtDate(d){return d.toISOString().slice(0,10);}
+function saveToStorage(){
+  const data={birth:els.birth.value,sex:els.sex.value,life:els.life.value,mode:els.mode.value};
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+}
+function loadFromStorage(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return;
+    const d=JSON.parse(raw);
+    if(d.birth) els.birth.value=d.birth;
+    if(d.sex) els.sex.value=d.sex;
+    if(d.life) els.life.value=d.life;
+    if(d.mode) els.mode.value=d.mode;
+  }catch(e){}
 }
 
+/* ---------- 主流程 ---------- */
 function applyFromUI(){
-  state.birth = els.birth.value ? new Date(els.birth.value + 'T00:00:00') : null;
-  state.sex = els.sex.value;
+  state.birth=els.birth.value?new Date(els.birth.value+'T00:00:00'):null;
+  state.sex=els.sex.value;
+  let life=parseInt(els.life.value||'0',10);
+  if(state.sex==='male') life=77;
+  if(state.sex==='female') life=84;
+  state.life=Math.min(Math.max(life||0,1),130);
+  state.mode=els.mode.value;
 
-  let lifeYears = parseInt(els.life.value || '0', 10);
-  if (state.sex === 'male') lifeYears = 77;
-  if (state.sex === 'female') lifeYears = 84;
-  state.life = Math.min(Math.max(lifeYears||0,1),130);
-
-  state.mode = els.mode.value;
-  state.size = parseInt(els.size.value,10);
-  state.gap = parseInt(els.gap.value,10);
-  state.colorOn = els.colorOn.value; state.colorOff = els.colorOff.value;
-
-  document.documentElement.style.setProperty('--dot-on', state.colorOn);
-  document.documentElement.style.setProperty('--dot-off', state.colorOff);
-  document.querySelector('.grid').style.setProperty('--size', state.size);
-  document.querySelector('.grid').style.setProperty('--gap', state.gap);
-
-  if (state.birth){
-    state.startDate = new Date(state.birth);
-    state.endDate = new Date(state.birth); state.endDate.setFullYear(state.endDate.getFullYear()+state.life);
-    state.totalWeeks = weeksBetween(state.startDate, state.endDate) + 1;
-    state.elapsedWeeks = weeksBetween(state.startDate, new Date());
+  if(state.birth){
+    state.startDate=new Date(state.birth);
+    state.endDate=addYears(state.startDate,state.life);
+    state.totalWeeks=weeksBetween(state.startDate,state.endDate)+1;
+    state.elapsedWeeks=weeksBetween(state.startDate,new Date());
   }else{
-    state.startDate = null; state.endDate = null; state.totalWeeks=0; state.elapsedWeeks=0;
+    state.startDate=null; state.endDate=null; state.totalWeeks=0; state.elapsedWeeks=0;
   }
 }
 
-function buildURL(){
-  const p = new URL(location.href);
-  const sp = new URLSearchParams();
-  if (els.birth.value) sp.set('birth', els.birth.value);
-  if (els.sex.value) sp.set('sex', els.sex.value);
-  if (els.life.value) sp.set('life', els.life.value);
-  if (els.mode.value) sp.set('mode', els.mode.value);
-  sp.set('size', els.size.value);
-  sp.set('gap', els.gap.value);
-  sp.set('on', els.colorOn.value);
-  sp.set('off', els.colorOff.value);
-  p.search = sp.toString();
-  return p.toString();
-}
-
-/* ---------- Rendering ---------- */
 function renderStats(){
-  if (!state.startDate){
-    els.stats.innerHTML = '<span class="small">請在右方輸入生日與性別/壽命</span>';
+  if(!state.startDate){
+    els.stats.innerHTML='';
     els.rangeText.textContent='';
     els.mantra.style.display='none';
     return;
   }
-  const pctElapsed = Math.round((state.elapsedWeeks / state.totalWeeks) * 100);
-  const pctRemain = Math.max(0, 100 - pctElapsed);
-  const bucket = Math.round(pctRemain / 10) * 10;
-  const quote = QUOTES.hasOwnProperty(bucket) ? QUOTES[bucket] : '';
-
-  els.stats.innerHTML = `
-    <div>總週數：<b>${state.totalWeeks.toLocaleString()}</b></div>
-    <div>已過週數：<b>${Math.min(state.elapsedWeeks, state.totalWeeks).toLocaleString()}</b></div>
-    <div>剩餘週數：<b>${Math.max(0, state.totalWeeks - state.elapsedWeeks).toLocaleString()}</b></div>
-    <div>進度：<b>${pctElapsed}%</b></div>
-  `;
+  const pct=Math.round((state.elapsedWeeks/state.totalWeeks)*100);
+  els.stats.innerHTML=`
+    <div class="progress-line">人生進度：<b>${pct}%</b></div>
+    <div class="statline">
+      <div>總週數：<b>${state.totalWeeks.toLocaleString()}</b></div>
+      <div>已過週數：<b>${Math.min(state.elapsedWeeks,state.totalWeeks).toLocaleString()}</b></div>
+      <div>剩餘週數：<b>${Math.max(0,state.totalWeeks-state.elapsedWeeks).toLocaleString()}</b></div>
+    </div>`;
   els.legendOn.textContent = state.mode==='elapsed'?'已過':'剩餘';
   els.legendOff.textContent = state.mode==='elapsed'?'剩餘':'已過';
-  document.getElementById('rangeText').textContent = `範圍：${fmtDate(state.startDate)} → ${fmtDate(state.endDate)}`;
-
-  if (quote){
-    els.mantra.textContent = `剩下 ${pctRemain}% ：${quote}`;
-    els.mantra.style.display = 'block';
-  }else{
-    els.mantra.style.display = 'none';
-  }
+  els.rangeText.textContent = `範圍：${fmtDate(state.startDate)} → ${fmtDate(state.endDate)}`;
 }
 
 function renderGrid(){
-  const g = els.grid;
-  g.innerHTML='';
-  if (!state.startDate) return;
-  const today = new Date();
-  const weeks = state.totalWeeks;
-  const frag = document.createDocumentFragment();
-  for (let i=0;i<weeks;i++){
-    const w = document.createElement('div');
-    w.className='w';
-    const weekStart = new Date(state.startDate.getTime() + i*7*24*60*60*1000);
-    const weekEnd = new Date(weekStart.getTime() + 6*24*60*60*1000);
-    const elapsed = (today >= weekEnd);
-    const on = (state.mode==='elapsed') ? elapsed : !elapsed;
-    if (on) w.classList.add('on');
-
-    const tip = document.createElement('div');
-    tip.className='tooltip';
-    tip.textContent = `第 ${i+1} 週｜${fmtDate(weekStart)} ~ ${fmtDate(weekEnd)}`;
-    w.appendChild(tip);
-
-    frag.appendChild(w);
+  els.grid.innerHTML='';
+  if(!state.startDate) return;
+  const today=new Date();
+  for(let i=0;i<state.totalWeeks;i++){
+    const w=document.createElement('div');w.className='w';
+    const weekStart=new Date(state.startDate.getTime()+i*7*24*60*60*1000);
+    const weekEnd=new Date(weekStart.getTime()+6*24*60*60*1000);
+    const elapsed=(today>=weekEnd);
+    const on=(state.mode==='elapsed')?elapsed:!elapsed;
+    if(on) w.classList.add('on');
+    w.title=`第 ${i+1} 週｜${fmtDate(weekStart)} ~ ${fmtDate(weekEnd)}`;
+    els.grid.appendChild(w);
   }
-  g.appendChild(frag);
 }
 
-function jumpToToday(){
-  if (!state.startDate) return;
-  const todayIndex = Math.min(state.elapsedWeeks, state.totalWeeks-1);
-  const child = els.grid.children[todayIndex];
-  if (child) child.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
-}
-
-/* ---------- Bind & Events ---------- */
-function bindAutoSave(){
-  const inputs = [els.birth, els.sex, els.life, els.mode, els.size, els.gap, els.colorOn, els.colorOff];
-  inputs.forEach(el=>{
-    el.addEventListener('change', saveToStorage);
-    el.addEventListener('input', saveToStorage);
-  });
-}
-
-/* 手機版：點「套用」後，自動把統計區塊帶回可視範圍（確保在 render 完成後觸發） */
 function scrollStatsIntoViewIfMobile(){
-  if (!window.matchMedia('(max-width: 980px)').matches) return;
-  requestAnimationFrame(()=>{
-    setTimeout(()=>{
-      els.stats.scrollIntoView({ behavior:'smooth', block:'start' });
-    }, 0); // iOS Safari：等待 DOM 回流/重排
-  });
+  if(!window.matchMedia('(max-width:980px)').matches) return;
+  requestAnimationFrame(()=>{setTimeout(()=>{
+    if(!els.stats) return;
+    const headerH=els.header?els.header.getBoundingClientRect().height:0;
+    const y=els.stats.getBoundingClientRect().top+window.scrollY-headerH-8;
+    window.scrollTo({top:y,behavior:'smooth'});
+  },0);});
 }
 
-els.apply.addEventListener('click', ()=>{
+/* ---------- 事件 ---------- */
+els.apply.addEventListener('click',()=>{
   applyFromUI(); renderStats(); renderGrid(); saveToStorage();
   scrollStatsIntoViewIfMobile();
 });
-
-els.share.addEventListener('click', ()=>{
-  const url = buildURL();
-  navigator.clipboard.writeText(url).then(()=>{
-    els.share.textContent='已複製連結'; setTimeout(()=>els.share.textContent='產生分享連結',1500);
+els.invert.addEventListener('click',()=>{
+  els.mode.value = (els.mode.value==='elapsed')?'remaining':'elapsed';
+  applyFromUI(); renderStats(); renderGrid(); saveToStorage();
+  scrollStatsIntoViewIfMobile();
+});
+els.today.addEventListener('click',()=>{
+  if(!state.startDate) return;
+  const i=Math.min(state.elapsedWeeks,state.totalWeeks-1);
+  els.grid.children[i]?.scrollIntoView({behavior:'smooth',block:'center'});
+});
+els.reset.addEventListener('click',()=>{
+  // 1) 清本機儲存
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  // 2) 清網址參數
+  if(history.replaceState){
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  }
+  // 3) 還原輸入
+  els.birth.value='';
+  els.sex.value='male';
+  els.life.value='77';
+  els.mode.value='remaining';
+  // 4) 重新渲染（會清空統計與圓點）
+  applyFromUI(); renderStats(); renderGrid();
+  // 5) 使用者回饋
+  const old=els.reset.textContent; els.reset.textContent='已重置';
+  setTimeout(()=>els.reset.textContent=old,1200);
+});
+els.share.addEventListener('click',()=>{
+  const url=new URL(location.href);
+  const sp=new URLSearchParams();
+  if(els.birth.value) sp.set('birth',els.birth.value);
+  if(els.sex.value) sp.set('sex',els.sex.value);
+  if(els.life.value) sp.set('life',els.life.value);
+  if(els.mode.value) sp.set('mode',els.mode.value);
+  url.search=sp.toString();
+  navigator.clipboard?.writeText(url.toString()).then(()=>{
+    const old=els.share.textContent; els.share.textContent='已複製連結';
+    setTimeout(()=>els.share.textContent=old,1200);
   });
 });
 
-els.invert.addEventListener('click', ()=>{
-  els.mode.value = (els.mode.value==='elapsed') ? 'remaining' : 'elapsed';
-  applyFromUI(); renderStats(); renderGrid(); saveToStorage();
-  scrollStatsIntoViewIfMobile();
-});
-
-els.jumpToday.addEventListener('click', jumpToToday);
-
-els.sex.addEventListener('change', ()=>{
-  if (els.sex.value==='male') els.life.value=77;
-  else if (els.sex.value==='female') els.life.value=84;
-  saveToStorage();
-});
-
-els.reset.addEventListener('click', ()=>{
-  clearStorage();
-  els.birth.value = '';
-  els.sex.value = 'male';
-  els.life.value = '77';
-  els.mode.value = 'remaining';
-  els.size.value = '12';
-  els.gap.value = '8';
-  els.colorOn.value = '#8ba2ff';
-  els.colorOff.value = '#2a3145';
-  applyFromUI(); renderStats(); renderGrid();
-  els.reset.textContent = '已重置';
-  setTimeout(()=> els.reset.textContent='重置設定', 1200);
-});
-
-window.addEventListener('beforeunload', saveToStorage);
-
-/* ---------- Init ---------- */
+/* ---------- 啟動 ---------- */
 loadFromStorage();
-loadFromQuery();
 applyFromUI();
 renderStats();
 renderGrid();
-bindAutoSave();
 </script>
 </body>
 </html>
