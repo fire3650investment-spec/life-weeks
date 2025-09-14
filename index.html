@@ -16,6 +16,7 @@
   --dot-on:#8ba2ff;
   --dot-off:#2a3145;
   --accent:#6a7dff;
+  --sticky-top:72px; /* header + 間距的安全值 */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -75,8 +76,12 @@ body{
 .statline{display:flex; gap:16px; flex-wrap:wrap; font-size:14px; margin-bottom:10px}
 .statline b{font-size:16px}
 .mantra{margin:10px 0 14px 0; font-size:13px; color:#cbd6ff; background:rgba(106,125,255,.08); border:1px solid rgba(106,125,255,.25); padding:10px 12px; border-radius:10px}
+
+/* 讓卷到 #stats 時不被 sticky header 擋住 */
+#stats{ scroll-margin-top: calc(var(--sticky-top) + 8px); }
+
 /* Right panel */
-.panel{position:sticky; top:72px}
+.panel{position:sticky; top:var(--sticky-top)}
 .panel h3{margin:0 0 10px 0; font-size:14px; letter-spacing:.16em; color:#c7d0e2; text-transform:uppercase}
 .row{display:flex; gap:10px; margin-bottom:10px; align-items:center}
 .row label{width:92px; font-size:13px; color:#cdd5e7}
@@ -105,7 +110,7 @@ input[type="range"]{width:100%}
   </div>
 
   <div class="container">
-    <!-- Left: grid -->
+    <!-- Left: grid & stats -->
     <div class="card">
       <div class="statline" id="stats"></div>
       <div class="mantra" id="mantra" style="display:none"></div>
@@ -192,7 +197,7 @@ const QUOTES = {
 };
 
 /* ---------- State & Elements ---------- */
-const STORAGE_KEY = 'lifeWeeksSettings.v1'; // 可改版控 key
+const STORAGE_KEY = 'lifeWeeksSettings.v1';
 const qs = new URLSearchParams(location.search);
 const els = {
   grid: document.getElementById('grid'),
@@ -217,62 +222,36 @@ const els = {
 };
 
 let state = {
-  birth: null, // Date
-  sex: 'male',
-  life: 77,
-  mode: 'remaining', // or 'elapsed'
-  size: 12,
-  gap: 8,
-  colorOn: '#8ba2ff',
-  colorOff: '#2a3145',
-  startDate: null,
-  endDate: null,
-  totalWeeks: 0,
-  elapsedWeeks: 0
+  birth: null, sex: 'male', life: 77,
+  mode: 'remaining', size: 12, gap: 8,
+  colorOn: '#8ba2ff', colorOff: '#2a3145',
+  startDate: null, endDate: null, totalWeeks: 0, elapsedWeeks: 0
 };
 
 /* ---------- LocalStorage ---------- */
 function saveToStorage() {
   const data = {
-    birth: els.birth.value,
-    sex: els.sex.value,
-    life: els.life.value,
-    mode: els.mode.value,
-    size: els.size.value,
-    gap: els.gap.value,
-    colorOn: els.colorOn.value,
-    colorOff: els.colorOff.value
+    birth: els.birth.value, sex: els.sex.value, life: els.life.value,
+    mode: els.mode.value, size: els.size.value, gap: els.gap.value,
+    colorOn: els.colorOn.value, colorOff: els.colorOff.value
   };
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.warn('Unable to save settings:', e);
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){}
 }
-
 function loadFromStorage() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if (data.birth) els.birth.value = data.birth;
-    if (data.sex) els.sex.value = data.sex;
-    if (data.life) els.life.value = data.life;
-    if (data.mode) els.mode.value = data.mode;
-    if (data.size) els.size.value = data.size;
-    if (data.gap) els.gap.value = data.gap;
-    if (data.colorOn) els.colorOn.value = data.colorOn;
-    if (data.colorOff) els.colorOff.value = data.colorOff;
-  } catch (e) {
-    console.warn('Unable to load settings:', e);
-  }
+    const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.birth) els.birth.value=d.birth;
+    if (d.sex) els.sex.value=d.sex;
+    if (d.life) els.life.value=d.life;
+    if (d.mode) els.mode.value=d.mode;
+    if (d.size) els.size.value=d.size;
+    if (d.gap) els.gap.value=d.gap;
+    if (d.colorOn) els.colorOn.value=d.colorOn;
+    if (d.colorOff) els.colorOff.value=d.colorOff;
+  } catch(e){}
 }
-
-function clearStorage() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch(e) {}
-}
+function clearStorage(){ try{ localStorage.removeItem(STORAGE_KEY); }catch(e){} }
 
 /* ---------- Setup & URL params ---------- */
 function loadFromQuery(){
@@ -290,11 +269,10 @@ function applyFromUI(){
   state.birth = els.birth.value ? new Date(els.birth.value + 'T00:00:00') : null;
   state.sex = els.sex.value;
 
-  // 性別為 male/female 時，以預設壽命覆寫；custom 則使用輸入
   let lifeYears = parseInt(els.life.value || '0', 10);
   if (state.sex === 'male') lifeYears = 77;
   if (state.sex === 'female') lifeYears = 84;
-  state.life = clamp(lifeYears||0, 1, 130);
+  state.life = Math.min(Math.max(lifeYears||0,1),130);
 
   state.mode = els.mode.value;
   state.size = parseInt(els.size.value,10);
@@ -308,7 +286,7 @@ function applyFromUI(){
 
   if (state.birth){
     state.startDate = new Date(state.birth);
-    state.endDate = addYears(state.startDate, state.life);
+    state.endDate = new Date(state.birth); state.endDate.setFullYear(state.endDate.getFullYear()+state.life);
     state.totalWeeks = weeksBetween(state.startDate, state.endDate) + 1;
     state.elapsedWeeks = weeksBetween(state.startDate, new Date());
   }else{
@@ -333,9 +311,12 @@ function buildURL(){
 
 /* ---------- Rendering ---------- */
 function renderStats(){
-  if (!state.startDate){ els.stats.innerHTML = '<span class="small">請在右方輸入生日與性別/壽命</span>'; els.rangeText.textContent=''; els.mantra.style.display='none'; return; }
-  const daysLived = daysBetween(state.startDate, new Date());
-  const daysTotal = daysBetween(state.startDate, state.endDate);
+  if (!state.startDate){
+    els.stats.innerHTML = '<span class="small">請在右方輸入生日與性別/壽命</span>';
+    els.rangeText.textContent='';
+    els.mantra.style.display='none';
+    return;
+  }
   const pctElapsed = Math.round((state.elapsedWeeks / state.totalWeeks) * 100);
   const pctRemain = Math.max(0, 100 - pctElapsed);
   const bucket = Math.round(pctRemain / 10) * 10;
@@ -349,7 +330,7 @@ function renderStats(){
   `;
   els.legendOn.textContent = state.mode==='elapsed'?'已過':'剩餘';
   els.legendOff.textContent = state.mode==='elapsed'?'剩餘':'已過';
-  els.rangeText.textContent = `範圍：${fmtDate(state.startDate)} → ${fmtDate(state.endDate)}`;
+  document.getElementById('rangeText').textContent = `範圍：${fmtDate(state.startDate)} → ${fmtDate(state.endDate)}`;
 
   if (quote){
     els.mantra.textContent = `剩下 ${pctRemain}% ：${quote}`;
@@ -362,7 +343,7 @@ function renderStats(){
 function renderGrid(){
   const g = els.grid;
   g.innerHTML='';
-  if (!state.startDate){ return; }
+  if (!state.startDate) return;
   const today = new Date();
   const weeks = state.totalWeeks;
   const frag = document.createDocumentFragment();
@@ -371,7 +352,7 @@ function renderGrid(){
     w.className='w';
     const weekStart = new Date(state.startDate.getTime() + i*7*24*60*60*1000);
     const weekEnd = new Date(weekStart.getTime() + 6*24*60*60*1000);
-    const elapsed = (today >= weekEnd); // 一週完整結束才算已過
+    const elapsed = (today >= weekEnd);
     const on = (state.mode==='elapsed') ? elapsed : !elapsed;
     if (on) w.classList.add('on');
 
@@ -396,13 +377,24 @@ function jumpToToday(){
 function bindAutoSave(){
   const inputs = [els.birth, els.sex, els.life, els.mode, els.size, els.gap, els.colorOn, els.colorOff];
   inputs.forEach(el=>{
-    el.addEventListener('change', ()=>{ saveToStorage(); });
-    el.addEventListener('input', ()=>{ saveToStorage(); });
+    el.addEventListener('change', saveToStorage);
+    el.addEventListener('input', saveToStorage);
+  });
+}
+
+/* 手機版：點「套用」後，自動把統計區塊帶回可視範圍（確保在 render 完成後觸發） */
+function scrollStatsIntoViewIfMobile(){
+  if (!window.matchMedia('(max-width: 980px)').matches) return;
+  requestAnimationFrame(()=>{
+    setTimeout(()=>{
+      els.stats.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 0); // iOS Safari：等待 DOM 回流/重排
   });
 }
 
 els.apply.addEventListener('click', ()=>{
   applyFromUI(); renderStats(); renderGrid(); saveToStorage();
+  scrollStatsIntoViewIfMobile();
 });
 
 els.share.addEventListener('click', ()=>{
@@ -415,6 +407,7 @@ els.share.addEventListener('click', ()=>{
 els.invert.addEventListener('click', ()=>{
   els.mode.value = (els.mode.value==='elapsed') ? 'remaining' : 'elapsed';
   applyFromUI(); renderStats(); renderGrid(); saveToStorage();
+  scrollStatsIntoViewIfMobile();
 });
 
 els.jumpToday.addEventListener('click', jumpToToday);
@@ -427,7 +420,6 @@ els.sex.addEventListener('change', ()=>{
 
 els.reset.addEventListener('click', ()=>{
   clearStorage();
-  // 回到預設狀態
   els.birth.value = '';
   els.sex.value = 'male';
   els.life.value = '77';
@@ -444,8 +436,8 @@ els.reset.addEventListener('click', ()=>{
 window.addEventListener('beforeunload', saveToStorage);
 
 /* ---------- Init ---------- */
-loadFromStorage(); // 1) 先讀本機設定
-loadFromQuery();   // 2) 再讀網址參數（若有）→ 覆蓋
+loadFromStorage();
+loadFromQuery();
 applyFromUI();
 renderStats();
 renderGrid();
